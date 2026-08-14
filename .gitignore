@@ -1,1 +1,8 @@
 .DS_Store
+
+# Личные данные (CSV few-shot примеры) — только локально + в задеплоенном
+# Cloudflare Worker, никогда в публичный репо.
+worker/fewshot.data.js
+
+# wrangler local build cache
+worker/.wrangler/

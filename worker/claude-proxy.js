@@ -13,17 +13,14 @@
  *   POST /api/punchline  — шаг 7: оценка попадания панчлайна
  */
 
+// Few-shot из личных данных (CSV "Стычки и рефрейминг") живёт в отдельном
+// файле, который НЕ коммитится в git (см. .gitignore в корне репо) — только
+// локально у тебя и в задеплоенном Worker'е. worker/fewshot.data.example.js
+// показывает формат без личных данных.
+import { FEWSHOT_MASK, FEWSHOT_PUNCHLINE } from "./fewshot.data.js";
+
 const MODEL = "claude-opus-5";
 const ANTHROPIC_VERSION = "2023-06-01";
-
-// Few-shot примеры из CSV "Стычки и рефрейминг" — пусто, пока не заполнено.
-// Формат под шаг 5 (маска) и шаг 7 (панчлайн), см. README.md в этой папке.
-const FEWSHOT_MASK = [
-  // { context: "...", mask: "Значимость", inversion: "ничтожность" },
-];
-const FEWSHOT_PUNCHLINE = [
-  // { context: "...", mask: "Значимость", inversion: "ничтожность", punchline: "...", verdict: "hit", explanation: "..." },
-];
 
 const MASK_TAXONOMY = `
 | Маска | Инверсия (больное место под ней) |
