@@ -13,10 +13,8 @@
  *   POST /api/punchline  — шаг 7: оценка попадания панчлайна
  */
 
-// Few-shot из личных данных (CSV "Стычки и рефрейминг") живёт в отдельном
-// файле, который НЕ коммитится в git (см. .gitignore в корне репо) — только
-// локально у тебя и в задеплоенном Worker'е. worker/fewshot.data.example.js
-// показывает формат без личных данных.
+// Few-shot из CSV "Стычки и рефрейминг" — куратированная выборка, формат см.
+// worker/fewshot.data.example.js.
 import { FEWSHOT_MASK, FEWSHOT_PUNCHLINE } from "./fewshot.data.js";
 
 const MODEL = "claude-opus-5";
