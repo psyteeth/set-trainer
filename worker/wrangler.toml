@@ -1,0 +1,7 @@
+name = "set-trainer-proxy"
+main = "claude-proxy.js"
+compatibility_date = "2025-01-01"
+
+# Секреты (НЕ хранить тут в открытом виде!) — задаются командами:
+#   wrangler secret put ANTHROPIC_API_KEY
+#   wrangler secret put TRAINER_TOKEN

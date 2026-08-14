@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>SET-панчлайн тренажёр</title>
+<meta name="robots" content="noindex, nofollow">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfaf8;
+    --fg: #1a1816;
+    --muted: #6b6259;
+    --accent: #8a4b2f;
+    --accent-fg: #ffffff;
+    --line: #e3ddd4;
+    --card: #ffffff;
+    --danger: #a23b2e;
+    --danger-bg: #fbe9e6;
+    --ok: #2f6b46;
+    --ok-bg: #e8f3ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16130f;
+      --fg: #ece7e0;
+      --muted: #a89f93;
+      --accent: #d38a5f;
+      --accent-fg: #16130f;
+      --line: #322c24;
+      --card: #1e1a15;
+      --danger: #e08a7a;
+      --danger-bg: #3a201c;
+      --ok: #8fcf a8;
+      --ok-bg: #17301f;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+  #app { max-width: 640px; margin: 0 auto; padding: 16px 16px 100px; }
+  header.top {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 0 16px;
+  }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  .step-indicator { font-size: 12px; color: var(--muted); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 18px; margin-bottom: 14px;
+  }
+  .card h2 { margin: 0 0 10px; font-size: 18px; }
+  .card p { margin: 0 0 10px; color: var(--muted); font-size: 14px; }
+  .hint { font-size: 13px; color: var(--muted); }
+
+  textarea, input[type=text] {
+    width: 100%; font-size: 16px; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--fg);
+    font-family: inherit; resize: vertical;
+  }
+  textarea { min-height: 110px; }
+  textarea:focus, input[type=text]:focus { outline: 2px solid var(--accent); }
+  label.field-label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+
+  button {
+    font-family: inherit; font-size: 16px; padding: 14px 18px; border-radius: 12px;
+    border: none; cursor: pointer; font-weight: 600;
+  }
+  button.primary { background: var(--accent); color: var(--accent-fg); width: 100%; }
+  button.primary:disabled { opacity: .45; cursor: not-allowed; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  button.ghost { background: transparent; color: var(--muted); border: none; padding: 8px 10px; font-weight: 500; font-size: 14px; }
+  button.role-btn {
+    display: block; width: 100%; text-align: left; background: var(--card);
+    border: 1px solid var(--line); padding: 16px; border-radius: 12px; margin-bottom: 10px;
+  }
+  button.role-btn:active, button.role-btn.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  button.role-btn .title { font-size: 16px; font-weight: 700; display: block; margin-bottom: 4px; }
+  button.role-btn .sub { font-size: 13px; color: var(--muted); font-weight: 400; }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+
+  .figure-row {
+    border: 1px solid var(--line); border-radius: 10px; padding: 12px; margin-bottom: 10px;
+    background: var(--bg);
+  }
+  .figure-row .remove { float: right; background: none; border: none; color: var(--danger); font-size: 13px; padding: 2px 4px; }
+
+  .checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin: 12px 0; }
+  .checkbox-row input[type=checkbox] { width: 20px; height: 20px; margin-top: 2px; flex-shrink: 0; }
+  .checkbox-row label { font-size: 14px; }
+
+  .warning { background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin: 10px 0; }
+  .result-box { background: var(--ok-bg); color: var(--fg); border-radius: 10px; padding: 14px; margin: 10px 0; }
+  .result-box.miss { background: var(--danger-bg); }
+  .result-box .verdict-label { font-weight: 700; font-size: 15px; margin-bottom: 6px; display: block; }
+
+  .stop-fab {
+    position: fixed; top: 12px; right: 12px; z-index: 50;
+    background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger);
+    border-radius: 999px; padding: 8px 14px; font-size: 12px; font-weight: 700;
+  }
+
+  .loading { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; padding: 20px 0; }
+  .spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--accent);
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .config-warning { background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+  .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+  .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
+  .taxonomy { font-size: 12px; color: var(--muted); margin-top: 10px; }
+  .taxonomy code { color: var(--fg); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="config.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var CFG = window.TRAINER_CONFIG || {};
+  var app = document.getElementById("app");
+
+  var EXCLUDED_KEYWORDS = [
+    "бывш", "жена", "жены", "жену", "жене",
+    "развод", "опек", "отец", "папа",
+    "дет" // "дети", "детей", "ребен", покрывается ниже отдельно
+  ];
+  var CHILD_KEYWORDS = ["ребен", "ребён", "дочк", "сын", "детьми", "детей", "детям"];
+
+  function containsExcluded(text) {
+    var t = (text || "").toLowerCase();
+    return EXCLUDED_KEYWORDS.concat(CHILD_KEYWORDS).some(function (kw) {
+      return t.indexOf(kw) !== -1;
+    });
+  }
+
+  var state = {
+    step: "intro", // intro | 1 | 2 | 3 | 4 | 5 | 6 | 7 | stopped | done
+    tooth: "",
+    figures: [{ who: "", what: "" }],
+    recognitionSpoken: false,
+    corroborated: false,
+    bypassAnswered: null, // true = была пауза, false = сразу вывод
+    bypassAcknowledged: false,
+    role: null,
+    maskGuess: "",
+    maskLoading: false,
+    maskResult: null, // {mask, inversion, reasoning}
+    punchline: "",
+    punchlineSpoken: false,
+    verdictLoading: false,
+    verdict: null, // {verdict, explanation}
+    saveStatus: null, // null | 'saving' | 'saved' | 'error'
+    sessionsSummary: null,
+    lastSessionAt: null,
+  };
+
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    attrs = attrs || {};
+    Object.keys(attrs).forEach(function (k) {
+      if (k === "class") e.className = attrs[k];
+      else if (k === "html") e.innerHTML = attrs[k];
+      else if (k.indexOf("on") === 0) e.addEventListener(k.slice(2), attrs[k]);
+      else if (k === "disabled" || k === "checked" || k === "selected" || k === "readonly") {
+        // Boolean HTML attributes: setAttribute(k, false) still leaves the
+        // attribute present (and thus "true") — must assign as a property.
+        e[k] = !!attrs[k];
+      }
+      else e.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) {
+      if (c == null) return;
+      e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    });
+    return e;
+  }
+
+  function configured() {
+    return !!(CFG.WORKER_URL && CFG.SHEETS_URL);
+  }
+
+  async function callWorker(path, body) {
+    var resp = await fetch(CFG.WORKER_URL.replace(/\/$/, "") + path, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Trainer-Token": CFG.WORKER_TOKEN || "",
+      },
+      body: JSON.stringify(body),
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || "Ошибка запроса");
+    return data;
+  }
+
+  async function saveToSheets() {
+    if (!CFG.SHEETS_URL) return;
+    state.saveStatus = "saving";
+    render();
+    try {
+      await fetch(CFG.SHEETS_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({
+          token: CFG.SHEETS_TOKEN || "",
+          tooth: state.tooth,
+          figures: state.figures,
+          role: state.role,
+          mask: state.maskResult && state.maskResult.mask,
+          inversion: state.maskResult && state.maskResult.inversion,
+          punchline: state.punchline,
+          verdict: state.verdict && state.verdict.verdict,
+        }),
+      });
+      state.saveStatus = "saved";
+    } catch (e) {
+      state.saveStatus = "error";
+    }
+    render();
+  }
+
+  async function loadSummary() {
+    if (!CFG.SHEETS_URL) return;
+    try {
+      var url = CFG.SHEETS_URL + "?token=" + encodeURIComponent(CFG.SHEETS_TOKEN || "");
+      var resp = await fetch(url);
+      var data = await resp.json();
+      if (data.ok) {
+        state.sessionsSummary = data.sessions || [];
+        if (state.sessionsSummary.length) {
+          state.lastSessionAt = state.sessionsSummary[state.sessionsSummary.length - 1].time;
+        }
+      }
+    } catch (e) { /* тихо игнорируем — не критично для тренажёра */ }
+    render();
+  }
+
+  function resetSession(soft) {
+    state = {
+      step: "intro",
+      tooth: "", figures: [{ who: "", what: "" }],
+      recognitionSpoken: false, corroborated: false,
+      bypassAnswered: null, bypassAcknowledged: false,
+      role: null, maskGuess: "", maskLoading: false, maskResult: null,
+      punchline: "", punchlineSpoken: false, verdictLoading: false, verdict: null,
+      saveStatus: null,
+      sessionsSummary: state ? state.sessionsSummary : null,
+      lastSessionAt: state ? state.lastSessionAt : null,
+    };
+    render();
+  }
+
+  function StopButton() {
+    return el("button", {
+      class: "stop-fab",
+      onclick: function () {
+        if (confirm("Прервать сессию сейчас? Прогресс этого захода не сохранится.")) {
+          state.step = "stopped";
+          render();
+        }
+      }
+    }, ["Стоп / перегрузка"]);
+  }
+
+  function Header(label) {
+    return el("header", { class: "top" }, [
+      el("h1", {}, ["SET-панчлайн тренажёр"]),
+      el("span", { class: "step-indicator" }, [label || ""]),
+    ]);
+  }
+
+  // ---------- Screens ----------
+
+  function screenIntro() {
+    var nodes = [];
+    if (!configured()) {
+      nodes.push(el("div", { class: "config-warning" }, [
+        "Тренажёр не настроен: заполни WORKER_URL и SHEETS_URL в config.js (см. README.md). ",
+        "Шаги 5 и 7 (распознавание маски, оценка панчлайна) без этого не заработают, история сессий не будет сохраняться."
+      ]));
+    }
+    if (state.sessionsSummary && state.sessionsSummary.length) {
+      var teeth = {};
+      state.sessionsSummary.forEach(function (s) { if (s.tooth) teeth[s.tooth.slice(0, 40)] = true; });
+      nodes.push(el("p", { class: "progress-note" }, [
+        "Пройдено сессий: " + state.sessionsSummary.length + ". Разобрано ситуаций: " + Object.keys(teeth).length + "."
+      ]));
+    }
+    nodes.push(el("div", { class: "card" }, [
+      el("h2", {}, ["Прежде чем начать"]),
+      el("p", {}, [
+        "Тренажёр берёт проблемный зуб как точку входа, находит параллельные фигуры в жизни, вызывающие то же ощущение, доводит до признания, определяет роль (АЖ-другой / АЖ-я) и тренирует SET-панчлайн — точный удар в больное место под маской."
+      ]),
+      el("p", {}, [
+        "Дозировка: начинай с лёгкодоступных по чувству случаев, к глубже спрятанным переходи только после наработки навыка. Дай себе восстановиться между подходами — не гони несколько тяжёлых сессий подряд."
+      ]),
+      el("p", { class: "hint" }, [
+        "Исключено из сценариев: реальная бывшая жена, дети, отец, развод/опека — чтобы не превращать тренажёр в канал руминации по судебному конфликту. Если фигура из этого списка — выбери другую."
+      ]),
+      el("button", {
+        class: "primary", onclick: function () { state.step = 1; render(); }
+      }, ["Начать"]),
+    ]));
+    return nodes;
+  }
+
+  function screenStopped() {
+    return [el("div", { class: "card" }, [
+      el("h2", {}, ["Сессия прервана"]),
+      el("p", {}, ["Ок. Ничего страшного — иногда лучше остановиться, чем продавливать через перегрузку. Вернёшься, когда будет ресурс."]),
+      el("button", { class: "primary", onclick: function () { resetSession(); } }, ["На главный экран"]),
+    ])];
+  }
+
+  function screenStep1() {
+    var nextBtn = el("button", {
+      class: "primary",
+      disabled: state.tooth.trim().length < 10,
+      onclick: function () { state.step = 2; render(); }
+    }, ["Далее"]);
+    return [el("div", { class: "card" }, [
+      el("h2", {}, ["Шаг 1. Зуб"]),
+      el("p", {}, [
+        "Опиши зуб — точку входа. Ответь свободным текстом на: «Это из-за него мне...» (тошно, плохо...) и «Это из-за него я не могу...» (не хочу...). ",
+        "Ощущение по телу/чувству/мысли не нужно расписывать отдельно — просто пусть оно будет внутри текста."
+      ]),
+      el("textarea", {
+        placeholder: "Напр.: 46 зуб, разрушен на 55%. Из-за него мне тошно, плохо. Я не могу, не хочу...",
+        oninput: function (e) {
+          state.tooth = e.target.value;
+          nextBtn.disabled = state.tooth.trim().length < 10;
+        },
+      }, [state.tooth]),
+      nextBtn,
+    ])];
+  }
+
+  function screenStep2() {
+    var rows = state.figures.map(function (f, i) {
+      var warn = containsExcluded(f.who + " " + f.what);
+      var children = [
+        el("input", {
+          type: "text", placeholder: "Кто (без реальных имён из исключённых тем)",
+          value: f.who,
+          oninput: function (e) { state.figures[i].who = e.target.value; render(true); }
+        }),
+        el("textarea", {
+          placeholder: "Что именно делает или говорит — конкретика, не категория (не «манипулирует», а что именно)",
+          oninput: function (e) { state.figures[i].what = e.target.value; render(true); }
+        }, [f.what]),
+      ];
+      if (state.figures.length > 1) {
+        children.unshift(el("button", {
+          class: "remove", onclick: function () { state.figures.splice(i, 1); render(); }
+        }, ["Убрать"]));
+      }
+      if (warn) {
+        children.push(el("div", { class: "warning" }, [
+          "Похоже, тема пересекается с исключённой (бывшая/дети/опека/отец). Тренажёр это специально не берёт — выбери другую фигуру."
+        ]));
+      }
+      return el("div", { class: "figure-row" }, children);
+    });
+
+    var canContinue = state.figures.some(function (f) {
+      return f.who.trim().length > 0 && f.what.trim().length > 5 && !containsExcluded(f.who + " " + f.what);
+    });
+
+    return [el("div", { class: "card" }, [
+      el("h2", {}, ["Шаг 2. Параллельные фигуры"]),
+      el("p", {}, [
+        "Кто ещё своим конкретным поведением/словами вызывает то же самое ощущение, что и зуб — не «похожее чувство вообще», а то же по телу/чувству/мысли."
+      ]),
+    ].concat(rows).concat([
+      el("button", {
+        class: "secondary", onclick: function () {
+          state.figures.push({ who: "", what: "" }); render();
+        }
+      }, ["+ Добавить фигуру"]),
+      el("div", { style: "height:12px" }),
+      el("button", {
+        class: "primary", disabled: !canContinue,
+        onclick: function () { state.step = 3; render(); }
+      }, ["Далее"]),
+    ]))];
+  }
+
+  function recognitionText() {
+    var figuresList = state.figures
+      .filter(function (f) { return f.who.trim(); })
+      .map(function (f) { return f.who + " (" + f.what + ")"; })
+      .join("; ");
+    return "Ебать меня это цепляет / я не вывожу / меня это триггерит от: " + figuresList + ".";
+  }
+
+  function screenStep3() {
+    var nodes = [
+      el("h2", {}, ["Шаг 3. Признание"]),
+      el("p", {}, ["Собранная формула — произнеси её письменно (уже готово) и вслух:"]),
+      el("div", { class: "recognition-text" }, [recognitionText()]),
+      el("div", { class: "checkbox-row" }, [
+        el("input", {
+          type: "checkbox", id: "spoken", checked: state.recognitionSpoken || null,
+          onchange: function (e) { state.recognitionSpoken = e.target.checked; render(); }
+        }),
+        el("label", { for: "spoken" }, ["Я произнёс(ла) это вслух"]),
+      ]),
+    ];
+
+    if (state.recognitionSpoken) {
+      nodes.push(el("p", { class: "hint" }, [
+        "Корёжит ли это — по телу, по чувствам, по мыслям? (Фигуры отбирались именно по совпадению с ощущением от зуба — так что структурно да; вопрос не фильтр, а чтобы ты сам(а) это зафиксировал(а) перед тем, как сказать вслух.)"
+      ]));
+      nodes.push(el("button", {
+        class: "secondary",
+        style: state.corroborated ? "border-color:var(--accent)" : "",
+        onclick: function () { state.corroborated = true; render(); }
+      }, [state.corroborated ? "✓ Да, корёжит" : "Да, корёжит"]));
+    }
+
+    if (state.corroborated && state.bypassAnswered === null) {
+      nodes.push(el("p", { class: "hint" }, [
+        "Проверка на bypass: есть ли между триггером и выводом хоть доля секунды сырого чувства?"
+      ]));
+      nodes.push(el("div", { class: "row" }, [
+        el("button", { class: "secondary", onclick: function () { state.bypassAnswered = true; render(); } }, ["Да, есть пауза"]),
+        el("button", { class: "secondary", onclick: function () { state.bypassAnswered = false; render(); } }, ["Нет, сразу вывод"]),
+      ]));
+    }
+
+    if (state.bypassAnswered === false && !state.bypassAcknowledged) {
+      nodes.push(el("div", { class: "warning" }, [
+        "Это похоже на bypass — конвертация признания в вывод/благодарность/рост без зазора сырого чувства. Попробуй остаться в ощущении ещё немного, не перескакивай сразу в «поняла урок». Если хочешь — просто отметь это и продолжай."
+      ]));
+      nodes.push(el("button", {
+        class: "secondary",
+        onclick: function () { state.bypassAcknowledged = true; render(); }
+      }, ["Понимаю, продолжаю всё равно"]));
+    }
+
+    var canContinue = state.recognitionSpoken && state.corroborated &&
+      (state.bypassAnswered === true || (state.bypassAnswered === false && state.bypassAcknowledged));
+
+    nodes.push(el("div", { style: "height:6px" }));
+    nodes.push(el("button", {
+      class: "primary", disabled: !canContinue,
+      onclick: function () { state.step = 4; render(); }
+    }, ["Далее"]));
+
+    return [el("div", { class: "card" }, nodes)];
+  }
+
+  function screenStep4() {
+    return [el("div", { class: "card" }, [
+      el("h2", {}, ["Шаг 4. Развилка роли"]),
+      el("p", {}, ["Чьё поведение сейчас должно подстроиться, чтобы стало легче — моё под него, или его под меня?"]),
+      el("button", {
+        class: "role-btn" + (state.role === "aj-other" ? " selected" : ""),
+        onclick: function () { state.role = "aj-other"; render(); }
+      }, [
+        el("span", { class: "title" }, ["Моё под него → АЖ-другой"]),
+        el("span", { class: "sub" }, ["Она выставляет счёт, требует исправить её состояние, я чувствую вину/обязанность."]),
+      ]),
+      el("button", {
+        class: "role-btn" + (state.role === "aj-self" ? " selected" : ""),
+        onclick: function () { state.role = "aj-self"; render(); }
+      }, [
+        el("span", { class: "title" }, ["Его под меня → АЖ-я"]),
+        el("span", { class: "sub" }, ["Я давлю через вину/страх/обязательство на того, кто пытается быть автономным, его отдаление меня корёжит."]),
+      ]),
+      el("div", { style: "height:6px" }),
+      el("button", {
+        class: "primary", disabled: !state.role,
+        onclick: function () { state.step = 5; render(); }
+      }, ["Далее"]),
+    ])];
+  }
+
+  async function runMaskRecognition() {
+    if (!configured()) { alert("Worker не настроен (config.js) — см. README.md"); return; }
+    state.maskLoading = true; render();
+    try {
+      var res = await callWorker("/api/mask", {
+        tooth: state.tooth, figures: state.figures, role: state.role, userGuess: state.maskGuess,
+      });
+      state.maskResult = res;
+    } catch (e) {
+      alert("Не удалось распознать маску: " + e.message);
+    }
+    state.maskLoading = false; render();
+  }
+
+  function screenStep5() {
+    var nodes = [
+      el("h2", {}, ["Шаг 5. Распознавание маски"]),
+      el("p", {}, [
+        state.role === "aj-other"
+          ? "Определим маску фигуры — то, что она защищает своим поведением."
+          : "Определим твою маску — ту, что ты скрываешь за требованием к другому."
+      ]),
+      el("label", { class: "field-label" }, ["Своя догадка (необязательно)"]),
+      el("input", {
+        type: "text", value: state.maskGuess,
+        oninput: function (e) { state.maskGuess = e.target.value; }
+      }),
+    ];
+
+    if (!state.maskResult && !state.maskLoading) {
+      nodes.push(el("button", { class: "primary", onclick: runMaskRecognition }, ["Определить маску"]));
+    }
+    if (state.maskLoading) {
+      nodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Анализирую..."]));
+    }
+    if (state.maskResult) {
+      nodes.push(el("div", { class: "result-box" }, [
+        el("span", { class: "verdict-label" }, ["Маска: " + state.maskResult.mask + " → инверсия: " + state.maskResult.inversion]),
+        el("div", {}, [state.maskResult.reasoning]),
+      ]));
+      nodes.push(el("button", {
+        class: "ghost", onclick: function () { state.maskResult = null; state.maskGuess = ""; render(); }
+      }, ["Пересмотреть"]));
+      nodes.push(el("button", {
+        class: "primary", onclick: function () { state.step = 6; render(); }
+      }, ["Далее — панчлайн"]));
+    }
+
+    return [el("div", { class: "card" }, nodes)];
+  }
+
+  function screenStep6() {
+    function canContinue() { return state.punchline.trim().length > 2 && state.punchlineSpoken; }
+    var nextBtn = el("button", {
+      class: "primary", disabled: !canContinue(),
+      onclick: async function () {
+        state.step = 7;
+        render();
+        state.verdictLoading = true; render();
+        try {
+          var res = await callWorker("/api/punchline", {
+            tooth: state.tooth, figures: state.figures, role: state.role,
+            mask: state.maskResult.mask, inversion: state.maskResult.inversion,
+            punchline: state.punchline,
+          });
+          state.verdict = res;
+        } catch (e) {
+          alert("Не удалось оценить панчлайн: " + e.message);
+          state.step = 6;
+        }
+        state.verdictLoading = false; render();
+      }
+    }, ["Проверить"]);
+
+    return [el("div", { class: "card" }, [
+      el("h2", {}, ["Шаг 6. Панчлайн"]),
+      el("p", {}, [
+        state.role === "aj-other"
+          ? "Ударь по маске фигуры — по конкретной инверсии («" + (state.maskResult ? state.maskResult.inversion : "") + "»), не по личности целиком."
+          : "Ударь по своей же маске — самоирония над собственным манёвром."
+      ]),
+      el("textarea", {
+        placeholder: "Твой SET-панчлайн",
+        oninput: function (e) {
+          state.punchline = e.target.value;
+          nextBtn.disabled = !canContinue();
+        }
+      }, [state.punchline]),
+      el("div", { class: "checkbox-row" }, [
+        el("input", {
+          type: "checkbox", id: "spoken2", checked: state.punchlineSpoken || null,
+          onchange: function (e) {
+            state.punchlineSpoken = e.target.checked;
+            nextBtn.disabled = !canContinue();
+          }
+        }),
+        el("label", { for: "spoken2" }, ["Я произнёс(ла) это вслух"]),
+      ]),
+      nextBtn,
+    ])];
+  }
+
+  function screenStep7() {
+    var nodes = [el("h2", {}, ["Шаг 7. Оценка попадания"])];
+    if (state.verdictLoading) {
+      nodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Оцениваю..."]));
+    }
+    if (state.verdict) {
+      var isMiss = state.verdict.verdict === "miss";
+      var label = state.verdict.verdict === "hit" ? "Попал" : state.verdict.verdict === "partial" ? "Частично" : "Мимо";
+      nodes.push(el("div", { class: "result-box" + (isMiss ? " miss" : "") }, [
+        el("span", { class: "verdict-label" }, [label]),
+        el("div", {}, [state.verdict.explanation]),
+      ]));
+
+      if (state.saveStatus === "saved") {
+        nodes.push(el("p", { class: "hint" }, ["Сохранено в историю."]));
+        nodes.push(el("button", { class: "primary", onclick: function () { resetSession(); } }, ["Новая сессия"]));
+      } else if (state.saveStatus === "saving") {
+        nodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Сохраняю..."]));
+      } else {
+        if (state.saveStatus === "error") {
+          nodes.push(el("p", { class: "hint" }, ["Не удалось сохранить в Sheets — проверь config.js."]));
+        }
+        nodes.push(el("button", { class: "primary", onclick: saveToSheets }, ["Завершить и сохранить"]));
+        nodes.push(el("button", { class: "ghost", onclick: function () { resetSession(); } }, ["Пропустить сохранение"]));
+      }
+    }
+    return [el("div", { class: "card" }, nodes)];
+  }
+
+  // ---------- Render ----------
+
+  function render(skipStop) {
+    app.innerHTML = "";
+    var body;
+    switch (state.step) {
+      case "intro": body = screenIntro(); break;
+      case "stopped": body = screenStopped(); break;
+      case 1: body = screenStep1(); break;
+      case 2: body = screenStep2(); break;
+      case 3: body = screenStep3(); break;
+      case 4: body = screenStep4(); break;
+      case 5: body = screenStep5(); break;
+      case 6: body = screenStep6(); break;
+      case 7: body = screenStep7(); break;
+      default: body = screenIntro();
+    }
+    if (typeof state.step === "number") app.appendChild(StopButton());
+    app.appendChild(Header(typeof state.step === "number" ? ("Шаг " + state.step + " / 7") : ""));
+    body.forEach(function (n) { app.appendChild(n); });
+  }
+
+  render();
+  loadSummary();
+})();
+</script>
+</body>
+</html>
