@@ -132,19 +132,10 @@
   var CFG = window.TRAINER_CONFIG || {};
   var app = document.getElementById("app");
 
-  var EXCLUDED_KEYWORDS = [
-    "бывш", "жена", "жены", "жену", "жене",
-    "развод", "опек", "отец", "папа",
-    "дет" // "дети", "детей", "ребен", покрывается ниже отдельно
-  ];
-  var CHILD_KEYWORDS = ["ребен", "ребён", "дочк", "сын", "детьми", "детей", "детям"];
-
-  function containsExcluded(text) {
-    var t = (text || "").toLowerCase();
-    return EXCLUDED_KEYWORDS.concat(CHILD_KEYWORDS).some(function (kw) {
-      return t.indexOf(kw) !== -1;
-    });
-  }
+  // Жёсткое исключение тем (бывшая жена/дети/отец/развод-опека) из ТЗ снято по
+  // решению пользователя: судебный конфликт закрыт, а сама фигура (отчуждённый
+  // отец как АЖ-жертва синдрома родительского отчуждения) — рабочий, не запретный
+  // случай для тренажёра.
 
   var state = {
     step: "intro", // intro | 1 | 2 | 3 | 4 | 5 | 6 | 7 | stopped | done
@@ -307,9 +298,6 @@
       el("p", {}, [
         "Дозировка: начинай с лёгкодоступных по чувству случаев, к глубже спрятанным переходи только после наработки навыка. Дай себе восстановиться между подходами — не гони несколько тяжёлых сессий подряд."
       ]),
-      el("p", { class: "hint" }, [
-        "Исключено из сценариев: реальная бывшая жена, дети, отец, развод/опека — чтобы не превращать тренажёр в канал руминации по судебному конфликту. Если фигура из этого списка — выбери другую."
-      ]),
       el("button", {
         class: "primary", onclick: function () { state.step = 1; render(); }
       }, ["Начать"]),
@@ -350,10 +338,9 @@
 
   function screenStep2() {
     var rows = state.figures.map(function (f, i) {
-      var warn = containsExcluded(f.who + " " + f.what);
       var children = [
         el("input", {
-          type: "text", placeholder: "Кто (без реальных имён из исключённых тем)",
+          type: "text", placeholder: "Кто",
           value: f.who,
           oninput: function (e) { state.figures[i].who = e.target.value; render(true); }
         }),
@@ -367,16 +354,11 @@
           class: "remove", onclick: function () { state.figures.splice(i, 1); render(); }
         }, ["Убрать"]));
       }
-      if (warn) {
-        children.push(el("div", { class: "warning" }, [
-          "Похоже, тема пересекается с исключённой (бывшая/дети/опека/отец). Тренажёр это специально не берёт — выбери другую фигуру."
-        ]));
-      }
       return el("div", { class: "figure-row" }, children);
     });
 
     var canContinue = state.figures.some(function (f) {
-      return f.who.trim().length > 0 && f.what.trim().length > 5 && !containsExcluded(f.who + " " + f.what);
+      return f.who.trim().length > 0 && f.what.trim().length > 5;
     });
 
     return [el("div", { class: "card" }, [
