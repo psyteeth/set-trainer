@@ -132,6 +132,19 @@
   var CFG = window.TRAINER_CONFIG || {};
   var app = document.getElementById("app");
 
+  // Типология SET-панчлайнов (резюме_сепарация_АЖ_СП.md §8) — ортогональна
+  // hit/miss/partial, показывает ЧТО за тип удара. Категория 5 приходит с
+  // отдельным caution от воркера (см. worker/claude-proxy.js).
+  var CATEGORY_LABELS = {
+    "0": "сырое называние триггера",
+    "1": "контр-SET к АЖ",
+    "1b": "аннигиляционная ярость",
+    "2": "самоирония/fogging",
+    "3": "точка Б / прямая потребность",
+    "4": "калибровка масштаба",
+    "5": "SET к своей стратегии выживания",
+  };
+
   // Жёсткое исключение тем (бывшая жена/дети/отец/развод-опека) из ТЗ снято по
   // решению пользователя: судебный конфликт закрыт, а сама фигура (отчуждённый
   // отец как АЖ-жертва синдрома родительского отчуждения) — рабочий, не запретный
@@ -581,10 +594,14 @@
     if (state.verdict) {
       var isMiss = state.verdict.verdict === "miss";
       var label = state.verdict.verdict === "hit" ? "Попал" : state.verdict.verdict === "partial" ? "Частично" : "Мимо";
+      var catLabel = CATEGORY_LABELS[state.verdict.category];
       nodes.push(el("div", { class: "result-box" + (isMiss ? " miss" : "") }, [
-        el("span", { class: "verdict-label" }, [label]),
+        el("span", { class: "verdict-label" }, [label + (catLabel ? " · " + catLabel : "")]),
         el("div", {}, [state.verdict.explanation]),
       ]));
+      if (state.verdict.caution) {
+        nodes.push(el("div", { class: "warning" }, [state.verdict.caution]));
+      }
 
       if (state.saveStatus === "saved") {
         nodes.push(el("p", { class: "hint" }, ["Сохранено в историю."]));

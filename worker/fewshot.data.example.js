@@ -16,6 +16,8 @@ export const FEWSHOT_PUNCHLINE = [
     inversion: `ничтожность`,
     punchline: `Текст панчлайна`,
     verdict: `hit`, // "hit" | "partial" | "miss"
+    category: `2`, // "0" | "1" | "1b" | "2" | "3" | "4" | "5" | null — см. типологию в worker/claude-proxy.js
+    caution: null, // текст предупреждения, только если category="5", иначе null
     explanation: `Почему именно так — короткое обоснование для калибровки модели.`,
   },
 ];
