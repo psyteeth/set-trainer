@@ -350,16 +350,38 @@
   }
 
   function screenStep2() {
+    function canContinue() {
+      return state.figures.some(function (f) {
+        return f.who.trim().length > 0 && f.what.trim().length > 5;
+      });
+    }
+
+    // nextBtn built before the rows so the input handlers below can toggle
+    // its disabled state directly, without a full render() on every
+    // keystroke — a full render() destroys and recreates the input/textarea
+    // DOM nodes, which drops focus on every character on real mobile
+    // keyboards (desktop automation masks this, phones don't).
+    var nextBtn = el("button", {
+      class: "primary", disabled: !canContinue(),
+      onclick: function () { state.step = 3; render(); }
+    }, ["Далее"]);
+
     var rows = state.figures.map(function (f, i) {
       var children = [
         el("input", {
           type: "text", placeholder: "Кто",
           value: f.who,
-          oninput: function (e) { state.figures[i].who = e.target.value; render(true); }
+          oninput: function (e) {
+            state.figures[i].who = e.target.value;
+            nextBtn.disabled = !canContinue();
+          }
         }),
         el("textarea", {
           placeholder: "Что именно делает или говорит — конкретика, не категория (не «манипулирует», а что именно)",
-          oninput: function (e) { state.figures[i].what = e.target.value; render(true); }
+          oninput: function (e) {
+            state.figures[i].what = e.target.value;
+            nextBtn.disabled = !canContinue();
+          }
         }, [f.what]),
       ];
       if (state.figures.length > 1) {
@@ -368,10 +390,6 @@
         }, ["Убрать"]));
       }
       return el("div", { class: "figure-row" }, children);
-    });
-
-    var canContinue = state.figures.some(function (f) {
-      return f.who.trim().length > 0 && f.what.trim().length > 5;
     });
 
     return [el("div", { class: "card" }, [
@@ -386,10 +404,7 @@
         }
       }, ["+ Добавить фигуру"]),
       el("div", { style: "height:12px" }),
-      el("button", {
-        class: "primary", disabled: !canContinue,
-        onclick: function () { state.step = 3; render(); }
-      }, ["Далее"]),
+      nextBtn,
     ]))];
   }
 
