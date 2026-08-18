@@ -67,7 +67,42 @@ function buildFigures(figures) {
     .join("\n");
 }
 
-async function callClaude(env, system, userText) {
+const MASK_SCHEMA = {
+  type: "object",
+  properties: {
+    mask: { type: "string" },
+    inversion: { type: "string" },
+    reasoning: { type: "string" },
+  },
+  required: ["mask", "inversion", "reasoning"],
+  additionalProperties: false,
+};
+
+const PUNCHLINE_SCHEMA = {
+  type: "object",
+  properties: {
+    verdict: { type: "string", enum: ["hit", "miss", "partial"] },
+    category: {
+      anyOf: [
+        { type: "string", enum: ["0", "1", "1b", "2", "3", "4", "5"] },
+        { type: "null" },
+      ],
+    },
+    explanation: { type: "string" },
+    caution: { anyOf: [{ type: "string" }, { type: "null" }] },
+  },
+  required: ["verdict", "category", "explanation", "caution"],
+  additionalProperties: false,
+};
+
+// Structured outputs (output_config.format) — the API guarantees the response
+// text is valid JSON matching the schema. Before this, we asked the model to
+// "respond in JSON" via prompt instructions and hand-parsed the text with a
+// regex + JSON.parse; an unescaped quote or stray character in the model's
+// own prose (e.g. quoting the user's punchline) would break that parse and
+// surface as "Не удалось оценить панчлайн: Expected ',' or '}' ...". Schema
+// enforcement removes that whole failure class.
+async function callClaude(env, system, userText, schema) {
   const resp = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -80,6 +115,7 @@ async function callClaude(env, system, userText) {
       max_tokens: 1500,
       system,
       messages: [{ role: "user", content: userText }],
+      output_config: { format: { type: "json_schema", schema } },
     }),
   });
 
@@ -94,14 +130,7 @@ async function callClaude(env, system, userText) {
   }
   const textBlock = (data.content || []).find((b) => b.type === "text");
   if (!textBlock) throw new Error("Пустой ответ модели.");
-  return textBlock.text;
-}
-
-function extractJson(text) {
-  // Модель просят вернуть чистый JSON, но на всякий случай вырезаем блок { ... }
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("Не удалось разобрать ответ модели как JSON.");
-  return JSON.parse(match[0]);
+  return JSON.parse(textBlock.text);
 }
 
 async function handleMask(env, body) {
@@ -122,8 +151,7 @@ async function handleMask(env, body) {
 ${MASK_TAXONOMY}
 ${fewshotBlock}
 
-Ответь СТРОГО в формате JSON без markdown-обрамления:
-{"mask": "название маски", "inversion": "инверсия/больное место под маской", "reasoning": "2-4 предложения — почему именно эта маска, на основе конкретики из текста пользователя"}`;
+Поле "reasoning" — 2-4 предложения, почему именно эта маска, на основе конкретики из текста пользователя.`;
 
   const userText = `Зуб (точка входа, шаг 1):
 ${tooth}
@@ -134,8 +162,7 @@ ${buildFigures(figures)}
 Роль (шаг 4): ${role === "aj-other" ? "АЖ-другой (моё поведение должно подстроиться)" : "АЖ-я (другой должен подстроиться под меня)"}
 ${userGuess ? `\nСобственная догадка пользователя о маске (учти, но не следуй слепо): ${userGuess}` : ""}`;
 
-  const raw = await callClaude(env, system, userText);
-  const parsed = extractJson(raw);
+  const parsed = await callClaude(env, system, userText, MASK_SCHEMA);
   return { mask: parsed.mask, inversion: parsed.inversion, reasoning: parsed.reasoning };
 }
 
@@ -161,8 +188,7 @@ async function handlePunchline(env, body) {
 ${PUNCHLINE_TYPOLOGY}
 Если категория "5" — это ВАЖНО отметить отдельным предупреждением в поле "caution": риск, что жёсткость к себе закрепится как новая форма самообесценивания, а не как освобождение от паттерна. Не хвали категорию 5 как финальную цель раунда. Для всех остальных категорий (включая null) поле "caution" — null.
 
-Ответь СТРОГО в формате JSON без markdown-обрамления:
-{"verdict": "hit" | "miss" | "partial", "category": "0" | "1" | "1b" | "2" | "3" | "4" | "5" | null, "explanation": "содержательный разбор в 3-6 предложений: попал или нет и почему именно, без баллов и чек-листов — живой разбор", "caution": "предупреждение, только если category=5, иначе null"}`;
+Поле "explanation" — содержательный разбор в 3-6 предложений: попал или нет и почему именно, без баллов и чек-листов — живой разбор.`;
 
   const userText = `Зуб: ${tooth}
 
@@ -175,8 +201,7 @@ ${buildFigures(figures)}
 
 Панчлайн пользователя: "${punchline}"`;
 
-  const raw = await callClaude(env, system, userText);
-  const parsed = extractJson(raw);
+  const parsed = await callClaude(env, system, userText, PUNCHLINE_SCHEMA);
   return {
     verdict: parsed.verdict,
     explanation: parsed.explanation,
