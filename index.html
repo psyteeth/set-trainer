@@ -115,6 +115,12 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .config-warning { background: var(--danger-bg); color: var(--danger); border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px; }
+  .mask-summary {
+    border: 1px solid var(--accent); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;
+    background: color-mix(in srgb, var(--accent) 8%, var(--card)); font-size: 14px;
+  }
+  .mask-summary b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .back-btn { margin-bottom: 4px; }
   .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
   .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
   .taxonomy { font-size: 12px; color: var(--muted); margin-top: 10px; }
@@ -573,11 +579,22 @@
       }
     }, ["Проверить"]);
 
+    var summaryBox = state.maskResult
+      ? el("div", { class: "mask-summary" }, [
+          el("b", {}, [
+            (state.role === "aj-other" ? "Маска фигуры: " : "Твоя маска: ") +
+            state.maskResult.mask + " → " + state.maskResult.inversion
+          ]),
+          el("span", {}, [state.maskResult.reasoning || ""]),
+        ])
+      : null;
+
     return [el("div", { class: "card" }, [
       el("h2", {}, ["Шаг 6. Панчлайн"]),
+      summaryBox,
       el("p", {}, [
         state.role === "aj-other"
-          ? "Ударь по маске фигуры — по конкретной инверсии («" + (state.maskResult ? state.maskResult.inversion : "") + "»), не по личности целиком."
+          ? "Ударь по маске фигуры — по конкретной инверсии, не по личности целиком."
           : "Ударь по своей же маске — самоирония над собственным манёвром."
       ]),
       el("textarea", {
@@ -636,6 +653,13 @@
 
   // ---------- Render ----------
 
+  function backTargetFor() {
+    var s = state.step;
+    if (s === 1) return "intro";
+    if (typeof s === "number" && s > 1) return s - 1;
+    return null;
+  }
+
   function render(skipStop) {
     app.innerHTML = "";
     var body;
@@ -653,6 +677,16 @@
     }
     if (typeof state.step === "number") app.appendChild(StopButton());
     app.appendChild(Header(typeof state.step === "number" ? ("Шаг " + state.step + " / 7") : ""));
+
+    var backTarget = backTargetFor();
+    var midRequest = state.maskLoading || state.verdictLoading || state.saveStatus === "saving";
+    if (backTarget !== null && !midRequest) {
+      app.appendChild(el("button", {
+        class: "ghost back-btn",
+        onclick: function () { state.step = backTarget; render(); }
+      }, ["← Назад"]));
+    }
+
     body.forEach(function (n) { app.appendChild(n); });
   }
 
