@@ -121,6 +121,11 @@
   }
   .mask-summary b { display: block; font-size: 15px; margin-bottom: 2px; }
   .back-btn { margin-bottom: 4px; }
+  .hint-box {
+    border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; margin: 10px 0;
+    font-size: 13px; color: var(--muted); background: var(--bg);
+  }
+  .hint-box b { display: block; color: var(--fg); font-size: 13px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .02em; }
   .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
   .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
   .taxonomy { font-size: 12px; color: var(--muted); margin-top: 10px; }
@@ -170,6 +175,8 @@
     maskResult: null, // {mask, inversion, reasoning}
     punchline: "",
     punchlineSpoken: false,
+    hintLoading: false,
+    hint: null, // {category, direction}
     verdictLoading: false,
     verdict: null, // {verdict, explanation}
     saveStatus: null, // null | 'saving' | 'saved' | 'error'
@@ -265,7 +272,8 @@
       recognitionSpoken: false, corroborated: false,
       bypassAnswered: null, bypassAcknowledged: false,
       role: null, maskGuess: "", maskLoading: false, maskResult: null,
-      punchline: "", punchlineSpoken: false, verdictLoading: false, verdict: null,
+      punchline: "", punchlineSpoken: false, hintLoading: false, hint: null,
+      verdictLoading: false, verdict: null,
       saveStatus: null,
       sessionsSummary: state ? state.sessionsSummary : null,
       lastSessionAt: state ? state.lastSessionAt : null,
@@ -589,6 +597,32 @@
         ])
       : null;
 
+    var hintNodes = [];
+    if (state.hint) {
+      hintNodes.push(el("div", { class: "hint-box" }, [
+        el("b", {}, [CATEGORY_LABELS[state.hint.category] || ("категория " + state.hint.category)]),
+        el("div", {}, [state.hint.direction]),
+      ]));
+    } else if (state.hintLoading) {
+      hintNodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Думаю над направлением..."]));
+    } else {
+      hintNodes.push(el("button", {
+        class: "ghost", onclick: async function () {
+          if (!configured()) { alert("Worker не настроен (config.js) — см. README.md"); return; }
+          state.hintLoading = true; render();
+          try {
+            state.hint = await callWorker("/api/hint", {
+              tooth: state.tooth, figures: state.figures, role: state.role,
+              mask: state.maskResult.mask, inversion: state.maskResult.inversion,
+            });
+          } catch (e) {
+            alert("Не удалось получить подсказку: " + e.message);
+          }
+          state.hintLoading = false; render();
+        }
+      }, ["Подсказать направление (без готовых слов)"]));
+    }
+
     return [el("div", { class: "card" }, [
       el("h2", {}, ["Шаг 6. Панчлайн"]),
       summaryBox,
@@ -597,6 +631,7 @@
           ? "Ударь по маске фигуры — по конкретной инверсии, не по личности целиком."
           : "Ударь по своей же маске — самоирония над собственным манёвром."
       ]),
+    ].concat(hintNodes).concat([
       el("textarea", {
         placeholder: "Твой SET-панчлайн",
         oninput: function (e) {
@@ -615,7 +650,7 @@
         el("label", { for: "spoken2" }, ["Я произнёс(ла) это вслух"]),
       ]),
       nextBtn,
-    ])];
+    ]))];
   }
 
   function screenStep7() {

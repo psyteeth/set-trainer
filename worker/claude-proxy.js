@@ -78,6 +78,16 @@ const MASK_SCHEMA = {
   additionalProperties: false,
 };
 
+const HINT_SCHEMA = {
+  type: "object",
+  properties: {
+    category: { type: "string", enum: ["0", "1", "1b", "2", "3", "4", "5"] },
+    direction: { type: "string" },
+  },
+  required: ["category", "direction"],
+  additionalProperties: false,
+};
+
 const PUNCHLINE_SCHEMA = {
   type: "object",
   properties: {
@@ -210,6 +220,35 @@ ${buildFigures(figures)}
   };
 }
 
+async function handleHint(env, body) {
+  const { tooth, figures, role, mask, inversion } = body;
+
+  const system = `Ты — ассистент психологического тренажёра "SET-панчлайн". Пользователь просит подсказку НАПРАВЛЕНИЯ удара перед тем, как сам(а) сформулирует панчлайн — сам панчлайн придумывает пользователь, не ты.
+
+Правило мишени, ОБЯЗАТЕЛЬНО согласованное с тем, как потом будет оцениваться попадание:
+- АЖ-другой: удар должен деидеализировать МАСКУ ФИГУРЫ — мишень фигура, не сам пользователь. Категории 1, 1b, 4 сюда подходят напрямую; категория 2 (самоирония) подходит только если направление явно указывает бить по маске фигуры, а не по своему импульсу.
+- АЖ-я: удар должен быть самоиронией пользователя над СОБСТВЕННОЙ маской/манёвром — мишень сам пользователь. Категории 2, 5 сюда подходят; категория 5 указывай с осторожностью (см. ниже).
+
+Типология типов удара:
+${PUNCHLINE_TYPOLOGY}
+
+Задача: выбрать одну наиболее подходящую категорию для этой ситуации (с учётом правила мишени выше) и дать направление — на что именно целиться и какого характера должен быть удар (жанр, мишень, тон), в 1-2 предложения.
+
+ЖЁСТКОЕ ПРАВИЛО: НЕ пиши сам панчлайн и не давай конкретных фраз, реплик или готовых формулировок, которые можно скопировать и произнести как есть. Только направление и характер — пользователь сам подбирает слова. Если категория "5" — упомяни в направлении, что это рискованный тип (не финальная цель раунда).`;
+
+  const userText = `Зуб: ${tooth}
+
+Фигуры:
+${buildFigures(figures)}
+
+Роль: ${role === "aj-other" ? "АЖ-другой" : "АЖ-я"}
+Распознанная маска: ${mask}
+Инверсия (больное место): ${inversion}`;
+
+  const parsed = await callClaude(env, system, userText, HINT_SCHEMA);
+  return { category: parsed.category, direction: parsed.direction };
+}
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");
@@ -238,6 +277,9 @@ export default {
       }
       if (url.pathname === "/api/punchline" && request.method === "POST") {
         return json(await handlePunchline(env, body), 200, origin);
+      }
+      if (url.pathname === "/api/hint" && request.method === "POST") {
+        return json(await handleHint(env, body), 200, origin);
       }
 
       return json({ error: "not found" }, 404, origin);
