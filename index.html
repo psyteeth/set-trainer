@@ -126,6 +126,15 @@
     font-size: 13px; color: var(--muted); background: var(--bg);
   }
   .hint-box b { display: block; color: var(--fg); font-size: 13px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .02em; }
+  .nuclear-box {
+    border: 1px dashed var(--accent); border-radius: 10px; padding: 14px 16px; margin: 12px 0;
+    font-size: 14px; background: var(--card);
+  }
+  .nuclear-box .quote { font-size: 16px; font-style: italic; margin-bottom: 8px; display: block; }
+  .nuclear-box .nudge { color: var(--muted); font-size: 13px; }
+  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+  .preset-row button { font-size: 12px; padding: 6px 10px; font-weight: 500; }
+  .tempo-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
   .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
   .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
   .taxonomy { font-size: 12px; color: var(--muted); margin-top: 10px; }
@@ -161,6 +170,15 @@
   // отец как АЖ-жертва синдрома родительского отчуждения) — рабочий, не запретный
   // случай для тренажёра.
 
+  // "Ядерная психологическая нагрузка" (ТЗ_ядерная_нагрузка_вход.md) — уже
+  // найденные ядра пользователя, для быстрого выбора кнопкой на шаге 1.
+  var NUCLEAR_LOAD_PRESETS = [
+    { tooth: "46", text: "её нет, я никто" },
+    { tooth: "48", text: "они живут своими знаниями, мои знания им не нужны" },
+    { tooth: "16", text: "она на меня плюёт, я ничтожество" },
+    { tooth: "21", text: "надо мной смеются, я вам не нужен" },
+  ];
+
   var state = {
     step: "intro", // intro | 1 | 2 | 3 | 4 | 5 | 6 | 7 | stopped | done
     tooth: "",
@@ -169,12 +187,16 @@
     corroborated: false,
     bypassAnswered: null, // true = была пауза, false = сразу вывод
     bypassAcknowledged: false,
+    nuclearLoad: "", // необязательная прямая цитата внутреннего голоса (шаг 1)
     role: null,
     maskGuess: "",
     maskLoading: false,
     maskResult: null, // {mask, inversion, reasoning}
     punchline: "",
     punchlineSpoken: false,
+    step6EnteredAt: null, // timestamp — для мягкой пометки темпа в разборе
+    tempoElapsedMs: null,
+    skippedPunchline: false, // "остался с ощущением" вместо панчлайна
     hintLoading: false,
     hint: null, // {category, direction}
     verdictLoading: false,
@@ -238,8 +260,9 @@
           role: state.role,
           mask: state.maskResult && state.maskResult.mask,
           inversion: state.maskResult && state.maskResult.inversion,
-          punchline: state.punchline,
-          verdict: state.verdict && state.verdict.verdict,
+          punchline: state.skippedPunchline ? "(остался/лась с ощущением, без панчлайна)" : state.punchline,
+          verdict: state.skippedPunchline ? "n/a" : (state.verdict && state.verdict.verdict),
+          nuclearLoad: state.nuclearLoad,
         }),
       });
       state.saveStatus = "saved";
@@ -271,8 +294,10 @@
       tooth: "", figures: [{ who: "", what: "" }],
       recognitionSpoken: false, corroborated: false,
       bypassAnswered: null, bypassAcknowledged: false,
+      nuclearLoad: "",
       role: null, maskGuess: "", maskLoading: false, maskResult: null,
-      punchline: "", punchlineSpoken: false, hintLoading: false, hint: null,
+      punchline: "", punchlineSpoken: false, step6EnteredAt: null, tempoElapsedMs: null, skippedPunchline: false,
+      hintLoading: false, hint: null,
       verdictLoading: false, verdict: null,
       saveStatus: null,
       sessionsSummary: state ? state.sessionsSummary : null,
@@ -359,6 +384,29 @@
           nextBtn.disabled = state.tooth.trim().length < 10;
         },
       }, [state.tooth]),
+      el("label", { class: "field-label" }, ["Ядерная психологическая нагрузка (необязательно)"]),
+      el("p", { class: "hint" }, [
+        "Само убеждение, которое срабатывает — прямая цитата внутреннего голоса от первого лица (не ситуация, не фигура — то, что оно тебе говорит). Если заполнишь — перед панчлайном будет мягкое напоминание не спешить."
+      ]),
+      (function () {
+        var nuclearTextarea = el("textarea", {
+          placeholder: "Напр.: её нет, я никто",
+          oninput: function (e) { state.nuclearLoad = e.target.value; },
+        }, [state.nuclearLoad]);
+        var presets = el("div", { class: "preset-row" },
+          NUCLEAR_LOAD_PRESETS.map(function (p) {
+            return el("button", {
+              class: "secondary",
+              onclick: function () {
+                state.nuclearLoad = p.text;
+                nuclearTextarea.value = p.text;
+              }
+            }, [p.tooth + " — «" + p.text + "»"]);
+          })
+        );
+        var wrap = el("div", {}, [presets, nuclearTextarea]);
+        return wrap;
+      })(),
       nextBtn,
     ])];
   }
@@ -519,6 +567,7 @@
     try {
       var res = await callWorker("/api/mask", {
         tooth: state.tooth, figures: state.figures, role: state.role, userGuess: state.maskGuess,
+        nuclearLoad: state.nuclearLoad,
       });
       state.maskResult = res;
     } catch (e) {
@@ -557,7 +606,11 @@
         class: "ghost", onclick: function () { state.maskResult = null; state.maskGuess = ""; render(); }
       }, ["Пересмотреть"]));
       nodes.push(el("button", {
-        class: "primary", onclick: function () { state.step = 6; render(); }
+        class: "primary", onclick: function () {
+          state.step6EnteredAt = Date.now();
+          state.step = 6;
+          render();
+        }
       }, ["Далее — панчлайн"]));
     }
 
@@ -569,6 +622,7 @@
     var nextBtn = el("button", {
       class: "primary", disabled: !canContinue(),
       onclick: async function () {
+        state.tempoElapsedMs = state.step6EnteredAt ? (Date.now() - state.step6EnteredAt) : null;
         state.step = 7;
         render();
         state.verdictLoading = true; render();
@@ -576,7 +630,7 @@
           var res = await callWorker("/api/punchline", {
             tooth: state.tooth, figures: state.figures, role: state.role,
             mask: state.maskResult.mask, inversion: state.maskResult.inversion,
-            punchline: state.punchline,
+            punchline: state.punchline, nuclearLoad: state.nuclearLoad,
           });
           state.verdict = res;
         } catch (e) {
@@ -597,6 +651,28 @@
         ])
       : null;
 
+    // "Шаг 0 — прочувствовать вход" (ТЗ_ядерная_нагрузка_вход.md §2): не гейт,
+    // не таймер, не чекбокс — просто плашка-напоминание не спешить к панчлайну.
+    var nuclearBox = state.nuclearLoad.trim()
+      ? el("div", { class: "nuclear-box" }, [
+          el("span", { class: "quote" }, ["«" + state.nuclearLoad.trim() + "»"]),
+          el("span", { class: "nudge" }, [
+            "Не спеши к панчлайну. Прочитай это вслух себе, побудь в ощущении несколько секунд — заметь, что тело реально в этом. Панчлайн не обязателен прямо сейчас: иногда честнее просто остаться с ощущением подольше. Если накрывает сильнее, чем просто дискомфорт — жми «Стоп / перегрузка» сверху, не нужно вытерпливать ради тренажёра."
+          ]),
+        ])
+      : null;
+
+    var stayBtn = state.nuclearLoad.trim()
+      ? el("button", {
+          class: "ghost",
+          onclick: function () {
+            state.skippedPunchline = true;
+            state.step = 7;
+            render();
+          }
+        }, ["Остаться с ощущением — без панчлайна"])
+      : null;
+
     var hintNodes = [];
     if (state.hint) {
       hintNodes.push(el("div", { class: "hint-box" }, [
@@ -614,6 +690,7 @@
             state.hint = await callWorker("/api/hint", {
               tooth: state.tooth, figures: state.figures, role: state.role,
               mask: state.maskResult.mask, inversion: state.maskResult.inversion,
+              nuclearLoad: state.nuclearLoad,
             });
           } catch (e) {
             alert("Не удалось получить подсказку: " + e.message);
@@ -626,6 +703,7 @@
     return [el("div", { class: "card" }, [
       el("h2", {}, ["Шаг 6. Панчлайн"]),
       summaryBox,
+      nuclearBox,
       el("p", {}, [
         state.role === "aj-other"
           ? "Ударь по маске фигуры — по конкретной инверсии, не по личности целиком."
@@ -650,10 +728,46 @@
         el("label", { for: "spoken2" }, ["Я произнёс(ла) это вслух"]),
       ]),
       nextBtn,
+      stayBtn,
     ]))];
   }
 
+  function saveRow() {
+    if (state.saveStatus === "saved") {
+      return [
+        el("p", { class: "hint" }, ["Сохранено в историю."]),
+        el("button", { class: "primary", onclick: function () { resetSession(); } }, ["Новая сессия"]),
+      ];
+    }
+    if (state.saveStatus === "saving") {
+      return [el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Сохраняю..."])];
+    }
+    var nodes = [];
+    if (state.saveStatus === "error") {
+      nodes.push(el("p", { class: "hint" }, ["Не удалось сохранить в Sheets — проверь config.js."]));
+    }
+    nodes.push(el("button", { class: "primary", onclick: saveToSheets }, ["Завершить и сохранить"]));
+    nodes.push(el("button", { class: "ghost", onclick: function () { resetSession(); } }, ["Пропустить сохранение"]));
+    return nodes;
+  }
+
   function screenStep7() {
+    // "Остался(лась) с ощущением" (ТЗ_ядерная_нагрузка_вход.md §4): панчлайн не
+    // обязательная цель раунда — этот путь не вызывает /api/punchline вообще,
+    // просто мягко закрывает раунд.
+    if (state.skippedPunchline) {
+      var stayNodes = [
+        el("h2", {}, ["Шаг 7. Пребывание"]),
+        el("div", { class: "result-box" }, [
+          state.nuclearLoad.trim() ? el("span", { class: "verdict-label" }, ["«" + state.nuclearLoad.trim() + "»"]) : null,
+          el("div", {}, [
+            "Иногда правильный финал раунда — просто остаться с ощущением, без эффектной фразы. Это не провал и не недоделанный раунд — панчлайн никогда не был обязателен."
+          ]),
+        ]),
+      ];
+      return [el("div", { class: "card" }, stayNodes.concat(saveRow()))];
+    }
+
     var nodes = [el("h2", {}, ["Шаг 7. Оценка попадания"])];
     if (state.verdictLoading) {
       nodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Оцениваю..."]));
@@ -670,18 +784,17 @@
         nodes.push(el("div", { class: "warning" }, [state.verdict.caution]));
       }
 
-      if (state.saveStatus === "saved") {
-        nodes.push(el("p", { class: "hint" }, ["Сохранено в историю."]));
-        nodes.push(el("button", { class: "primary", onclick: function () { resetSession(); } }, ["Новая сессия"]));
-      } else if (state.saveStatus === "saving") {
-        nodes.push(el("div", { class: "loading" }, [el("div", { class: "spinner" }), "Сохраняю..."]));
-      } else {
-        if (state.saveStatus === "error") {
-          nodes.push(el("p", { class: "hint" }, ["Не удалось сохранить в Sheets — проверь config.js."]));
-        }
-        nodes.push(el("button", { class: "primary", onclick: saveToSheets }, ["Завершить и сохранить"]));
-        nodes.push(el("button", { class: "ghost", onclick: function () { resetSession(); } }, ["Пропустить сохранение"]));
+      // Мягкая пометка темпа (ТЗ_ядерная_нагрузка_вход.md §3) — не штраф, не
+      // условие "правильного" раунда, просто наблюдение для рефлексии.
+      if (state.nuclearLoad.trim() && state.tempoElapsedMs != null) {
+        nodes.push(el("p", { class: "tempo-note" }, [
+          state.tempoElapsedMs < 10000
+            ? "Панчлайн пришёл почти сразу после входа — возможно, шаг «побыть с ощущением» проскочил мимо. Не ошибка, просто для рефлексии на следующий раз."
+            : "Панчлайн пришёл после паузы — вход, похоже, состоялся."
+        ]));
       }
+
+      nodes = nodes.concat(saveRow());
     }
     return [el("div", { class: "card" }, nodes)];
   }

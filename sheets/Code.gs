@@ -19,6 +19,7 @@ const HEADERS = [
   "Инверсия",
   "Панчлайн",
   "Вердикт",
+  "Ядерная нагрузка", // ТЗ_ядерная_нагрузка_вход.md — добавлен позже, в конце строки
 ];
 
 function getSheet_() {
@@ -29,6 +30,15 @@ function getSheet_() {
   }
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
+  } else {
+    // Миграция: если таблица создана до появления новых полей, дописываем
+    // недостающие заголовки в конец первой строки — старые строки данных
+    // остаются на своих местах по позиции столбца.
+    const existingCount = sheet.getLastColumn();
+    if (existingCount < HEADERS.length) {
+      sheet.getRange(1, existingCount + 1, 1, HEADERS.length - existingCount)
+        .setValues([HEADERS.slice(existingCount)]);
+    }
   }
   return sheet;
 }
@@ -66,6 +76,7 @@ function doPost(e) {
       body.inversion || "",
       body.punchline || "",
       body.verdict || "",
+      body.nuclearLoad || "",
     ]);
 
     return jsonOut_({ ok: true });

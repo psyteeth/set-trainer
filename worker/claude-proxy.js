@@ -67,6 +67,17 @@ function buildFigures(figures) {
     .join("\n");
 }
 
+// "Ядерная психологическая нагрузка" — необязательная прямая цитата
+// внутреннего голоса, введённая на шаге 1 (ТЗ_ядерная_нагрузка_вход.md).
+// Не сама ситуация — убеждение, которое срабатывает. Передаём как
+// дополнительный контекст всем трём эндпойнтам, когда заполнено: обычно
+// прямо называет инверсию раньше, чем модель её выведет из ситуации.
+function nuclearLoadLine(nuclearLoad) {
+  return nuclearLoad && nuclearLoad.trim()
+    ? `\n\nЯдерная психологическая нагрузка (внутренний голос пользователя, прямая цитата): "${nuclearLoad.trim()}"`
+    : "";
+}
+
 const MASK_SCHEMA = {
   type: "object",
   properties: {
@@ -144,7 +155,7 @@ async function callClaude(env, system, userText, schema) {
 }
 
 async function handleMask(env, body) {
-  const { tooth, figures, role, userGuess } = body;
+  const { tooth, figures, role, userGuess, nuclearLoad } = body;
 
   const fewshotBlock = FEWSHOT_MASK.length
     ? "\n\nПримеры (few-shot, реальные случаи):\n" +
@@ -170,14 +181,14 @@ ${tooth}
 ${buildFigures(figures)}
 
 Роль (шаг 4): ${role === "aj-other" ? "АЖ-другой (моё поведение должно подстроиться)" : "АЖ-я (другой должен подстроиться под меня)"}
-${userGuess ? `\nСобственная догадка пользователя о маске (учти, но не следуй слепо): ${userGuess}` : ""}`;
+${userGuess ? `\nСобственная догадка пользователя о маске (учти, но не следуй слепо): ${userGuess}` : ""}${nuclearLoadLine(nuclearLoad)}`;
 
   const parsed = await callClaude(env, system, userText, MASK_SCHEMA);
   return { mask: parsed.mask, inversion: parsed.inversion, reasoning: parsed.reasoning };
 }
 
 async function handlePunchline(env, body) {
-  const { tooth, figures, role, mask, inversion, punchline } = body;
+  const { tooth, figures, role, mask, inversion, punchline, nuclearLoad } = body;
 
   const fewshotBlock = FEWSHOT_PUNCHLINE.length
     ? "\n\nПримеры (few-shot, реальные случаи):\n" +
@@ -207,7 +218,7 @@ ${buildFigures(figures)}
 
 Роль: ${role === "aj-other" ? "АЖ-другой" : "АЖ-я"}
 Распознанная маска: ${mask}
-Инверсия (больное место): ${inversion}
+Инверсия (больное место): ${inversion}${nuclearLoadLine(nuclearLoad)}
 
 Панчлайн пользователя: "${punchline}"`;
 
@@ -221,7 +232,7 @@ ${buildFigures(figures)}
 }
 
 async function handleHint(env, body) {
-  const { tooth, figures, role, mask, inversion } = body;
+  const { tooth, figures, role, mask, inversion, nuclearLoad } = body;
 
   const system = `Ты — ассистент психологического тренажёра "SET-панчлайн". Пользователь просит подсказку НАПРАВЛЕНИЯ удара перед тем, как сам(а) сформулирует панчлайн — сам панчлайн придумывает пользователь, не ты.
 
@@ -243,7 +254,7 @@ ${buildFigures(figures)}
 
 Роль: ${role === "aj-other" ? "АЖ-другой" : "АЖ-я"}
 Распознанная маска: ${mask}
-Инверсия (больное место): ${inversion}`;
+Инверсия (больное место): ${inversion}${nuclearLoadLine(nuclearLoad)}`;
 
   const parsed = await callClaude(env, system, userText, HINT_SCHEMA);
   return { category: parsed.category, direction: parsed.direction };
