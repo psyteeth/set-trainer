@@ -132,8 +132,6 @@
   }
   .nuclear-box .quote { font-size: 16px; font-style: italic; margin-bottom: 8px; display: block; }
   .nuclear-box .nudge { color: var(--muted); font-size: 13px; }
-  .preset-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
-  .preset-row button { font-size: 12px; padding: 6px 10px; font-weight: 500; }
   .tempo-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
   .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
   .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
@@ -169,16 +167,6 @@
   // решению пользователя: судебный конфликт закрыт, а сама фигура (отчуждённый
   // отец как АЖ-жертва синдрома родительского отчуждения) — рабочий, не запретный
   // случай для тренажёра.
-
-  // "Ядерная психологическая нагрузка" (ТЗ_ядерная_нагрузка_вход.md) — уже
-  // найденные ядра пользователя, для быстрого выбора кнопкой на шаге 2.
-  // Формат: оценка происходящего — ущербный вывод о себе.
-  var NUCLEAR_LOAD_PRESETS = [
-    "её нет, я никто",
-    "они живут своими знаниями, мои знания им не нужны",
-    "она на меня плюёт, я ничтожество",
-    "надо мной смеются, я вам не нужен",
-  ];
 
   var state = {
     step: "intro", // intro | 1 | 2 | 3 | 4 | 5 | 6 | 7 | stopped | done
@@ -443,18 +431,6 @@
         nextBtn.disabled = !canContinue();
       },
     }, [state.nuclearLoad]);
-    var nuclearPresets = el("div", { class: "preset-row" },
-      NUCLEAR_LOAD_PRESETS.map(function (text) {
-        return el("button", {
-          class: "secondary",
-          onclick: function () {
-            state.nuclearLoad = text;
-            nuclearTextarea.value = text;
-            nextBtn.disabled = !canContinue();
-          }
-        }, ["«" + text + "»"]);
-      })
-    );
 
     return [el("div", { class: "card" }, [
       el("h2", {}, ["Шаг 2. Параллельные фигуры"]),
@@ -469,9 +445,11 @@
       }, ["+ Добавить фигуру"]),
       el("label", { class: "field-label" }, ["Ядерная психологическая нагрузка"]),
       el("p", { class: "hint" }, [
-        "Само убеждение, которое срабатывает в контакте с этой фигурой — не ситуация, а прямая цитата внутреннего голоса. Формат: оценка происходящего — ущербный вывод о себе. Например: «она на меня плюёт — я ничтожество». Если ведёшь список «Психнагрузка, которую не вывожу» — сверься с ним."
+        "Впиши сюда свою когнитивную оценку происходящего в контакте с этой ситуацией. Для помощи можно использовать листочек «Что происходит и Нагрузка “Смерти подобно”».",
       ]),
-      nuclearPresets,
+      el("p", { class: "hint" }, [
+        "В итоге получится что-то похожее на схему: оценка происходящего — ущербный вывод о себе. Например: «она на меня плюёт — я ничтожество», «её нет — я никто», «надо мной смеются — я вам не нужен»."
+      ]),
       nuclearTextarea,
       el("div", { style: "height:12px" }),
       nextBtn,
