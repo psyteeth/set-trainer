@@ -171,12 +171,13 @@
   // случай для тренажёра.
 
   // "Ядерная психологическая нагрузка" (ТЗ_ядерная_нагрузка_вход.md) — уже
-  // найденные ядра пользователя, для быстрого выбора кнопкой на шаге 1.
+  // найденные ядра пользователя, для быстрого выбора кнопкой на шаге 2.
+  // Формат: оценка происходящего — ущербный вывод о себе.
   var NUCLEAR_LOAD_PRESETS = [
-    { tooth: "46", text: "её нет, я никто" },
-    { tooth: "48", text: "они живут своими знаниями, мои знания им не нужны" },
-    { tooth: "16", text: "она на меня плюёт, я ничтожество" },
-    { tooth: "21", text: "надо мной смеются, я вам не нужен" },
+    "её нет, я никто",
+    "они живут своими знаниями, мои знания им не нужны",
+    "она на меня плюёт, я ничтожество",
+    "надо мной смеются, я вам не нужен",
   ];
 
   var state = {
@@ -187,7 +188,7 @@
     corroborated: false,
     bypassAnswered: null, // true = была пауза, false = сразу вывод
     bypassAcknowledged: false,
-    nuclearLoad: "", // необязательная прямая цитата внутреннего голоса (шаг 1)
+    nuclearLoad: "", // обязательная прямая цитата внутреннего голоса (шаг 2, в контакте с фигурой)
     role: null,
     maskGuess: "",
     maskLoading: false,
@@ -384,38 +385,16 @@
           nextBtn.disabled = state.tooth.trim().length < 10;
         },
       }, [state.tooth]),
-      el("label", { class: "field-label" }, ["Ядерная психологическая нагрузка (необязательно)"]),
-      el("p", { class: "hint" }, [
-        "Само убеждение, которое срабатывает — прямая цитата внутреннего голоса от первого лица (не ситуация, не фигура — то, что оно тебе говорит). Если заполнишь — перед панчлайном будет мягкое напоминание не спешить."
-      ]),
-      (function () {
-        var nuclearTextarea = el("textarea", {
-          placeholder: "Напр.: её нет, я никто",
-          oninput: function (e) { state.nuclearLoad = e.target.value; },
-        }, [state.nuclearLoad]);
-        var presets = el("div", { class: "preset-row" },
-          NUCLEAR_LOAD_PRESETS.map(function (p) {
-            return el("button", {
-              class: "secondary",
-              onclick: function () {
-                state.nuclearLoad = p.text;
-                nuclearTextarea.value = p.text;
-              }
-            }, [p.tooth + " — «" + p.text + "»"]);
-          })
-        );
-        var wrap = el("div", {}, [presets, nuclearTextarea]);
-        return wrap;
-      })(),
       nextBtn,
     ])];
   }
 
   function screenStep2() {
     function canContinue() {
-      return state.figures.some(function (f) {
+      var figuresOk = state.figures.some(function (f) {
         return f.who.trim().length > 0 && f.what.trim().length > 5;
       });
+      return figuresOk && state.nuclearLoad.trim().length > 2;
     }
 
     // nextBtn built before the rows so the input handlers below can toggle
@@ -454,6 +433,29 @@
       return el("div", { class: "figure-row" }, children);
     });
 
+    // Ядерная психологическая нагрузка (ТЗ_ядерная_нагрузка_вход.md) — срабатывает
+    // в контакте с фигурой, не с зубом, поэтому живёт на этом шаге, не на шаге 1.
+    // Обязательное поле.
+    var nuclearTextarea = el("textarea", {
+      placeholder: "Напр.: она на меня плюёт — я ничтожество",
+      oninput: function (e) {
+        state.nuclearLoad = e.target.value;
+        nextBtn.disabled = !canContinue();
+      },
+    }, [state.nuclearLoad]);
+    var nuclearPresets = el("div", { class: "preset-row" },
+      NUCLEAR_LOAD_PRESETS.map(function (text) {
+        return el("button", {
+          class: "secondary",
+          onclick: function () {
+            state.nuclearLoad = text;
+            nuclearTextarea.value = text;
+            nextBtn.disabled = !canContinue();
+          }
+        }, ["«" + text + "»"]);
+      })
+    );
+
     return [el("div", { class: "card" }, [
       el("h2", {}, ["Шаг 2. Параллельные фигуры"]),
       el("p", {}, [
@@ -465,6 +467,12 @@
           state.figures.push({ who: "", what: "" }); render();
         }
       }, ["+ Добавить фигуру"]),
+      el("label", { class: "field-label" }, ["Ядерная психологическая нагрузка"]),
+      el("p", { class: "hint" }, [
+        "Само убеждение, которое срабатывает в контакте с этой фигурой — не ситуация, а прямая цитата внутреннего голоса. Формат: оценка происходящего — ущербный вывод о себе. Например: «она на меня плюёт — я ничтожество». Если ведёшь список «Психнагрузка, которую не вывожу» — сверься с ним."
+      ]),
+      nuclearPresets,
+      nuclearTextarea,
       el("div", { style: "height:12px" }),
       nextBtn,
     ]))];
