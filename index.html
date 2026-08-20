@@ -133,6 +133,11 @@
   .nuclear-box .quote { font-size: 16px; font-style: italic; margin-bottom: 8px; display: block; }
   .nuclear-box .nudge { color: var(--muted); font-size: 13px; }
   .tempo-note { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .role-check-box {
+    border: 1px solid var(--danger); border-radius: 10px; padding: 12px 14px; margin: 10px 0;
+    font-size: 13px; background: var(--danger-bg); color: var(--fg);
+  }
+  .role-check-box b { display: block; color: var(--danger); font-size: 12px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .02em; }
   .progress-note { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
   .recognition-text { font-size: 16px; line-height: 1.6; padding: 4px 0; }
   .taxonomy { font-size: 12px; color: var(--muted); margin-top: 10px; }
@@ -588,6 +593,19 @@
         el("span", { class: "verdict-label" }, ["Маска: " + state.maskResult.mask + " → инверсия: " + state.maskResult.inversion]),
         el("div", {}, [state.maskResult.reasoning]),
       ]));
+      if (state.maskResult.roleCheck) {
+        nodes.push(el("div", { class: "role-check-box" }, [
+          el("b", {}, ["Стоит перепроверить роль"]),
+          el("div", {}, [state.maskResult.roleCheck]),
+          el("button", {
+            class: "ghost", style: "margin-top:8px",
+            onclick: function () {
+              state.step = 4; state.maskResult = null; state.maskGuess = "";
+              render();
+            }
+          }, ["← Пересмотреть роль (шаг 4)"]),
+        ]));
+      }
       nodes.push(el("button", {
         class: "ghost", onclick: function () { state.maskResult = null; state.maskGuess = ""; render(); }
       }, ["Пересмотреть"]));
